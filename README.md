@@ -16,6 +16,11 @@ Vibe Island 是一款贴合 Mac 顶部刘海与菜单栏的原生 Codex 状态�
 
 ## 界面预览
 
+<p align="center">
+  <strong>紧凑状态</strong><br><br>
+  <img src="docs/assets/vibe-island-compact-mode.png" alt="Vibe Island 在 Mac 顶部的紧凑状态">
+</p>
+
 <table>
   <tr>
     <th>任务与额度</th>
