@@ -1,6 +1,4 @@
 <div align="center">
-  <img src="Resources/VibeIslandAppIcon.png" width="112" alt="Vibe Island 图标">
-
 # Vibe Island
 
 **让 Codex 的额度与任务状态，始终停在 Mac 顶部。**
@@ -12,9 +10,25 @@
 
 </div>
 
-![Vibe Island 界面概念展示](docs/assets/vibe-island-hero.png)
-
 Vibe Island 是一款贴合 Mac 顶部刘海与菜单栏的原生 Codex 状态岛。它通过本机 `codex app-server` 同步使用额度、刷新倒计时和任务状态；需要关注时亮起，平时则安静地留在屏幕顶部。
+
+## 界面预览
+
+<table>
+  <tr>
+    <th>任务与额度</th>
+    <th>个性化设置</th>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/vibe-island-dashboard.png" alt="Vibe Island 任务与额度界面"></td>
+    <td><img src="docs/assets/vibe-island-settings.png" alt="Vibe Island 设置界面"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <strong>桌面 Widget</strong><br><br>
+  <img src="docs/assets/vibe-island-widget.png" width="732" alt="Vibe Island 桌面 Widget">
+</p>
 
 ## 亮点
 
