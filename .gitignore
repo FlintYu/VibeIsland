@@ -1,0 +1,29 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode user data
+DerivedData/
+WidgetExtension/build/
+*.xcuserstate
+xcuserdata/
+
+# Distribution artifacts
+dist/
+
+# macOS
+.DS_Store
+._*
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
