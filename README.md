@@ -1,4 +1,6 @@
 <div align="center">
+  <img src="Resources/VibeIslandAppIcon.png" width="112" alt="Vibe Island 图标">
+
 # Vibe Island
 
 **让 Codex 的额度与任务状态，始终停在 Mac 顶部。**

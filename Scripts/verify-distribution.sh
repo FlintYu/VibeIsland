@@ -4,13 +4,14 @@ set -euo pipefail
 project_dir="${0:A:h:h}"
 app_dir="$project_dir/dist/VibeIsland.app"
 executable="$app_dir/Contents/MacOS/VibeIsland"
+icon="$app_dir/Contents/Resources/VibeIsland.icns"
 widget_dir="$app_dir/Contents/PlugIns/VibeIslandWidget.appex"
 widget_executable="$widget_dir/Contents/MacOS/VibeIslandWidget"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$project_dir/Resources/Info.plist")"
 archive_path="$project_dir/dist/VibeIsland-$version-macOS-arm64.zip"
 checksum_path="$archive_path.sha256"
 
-if [[ ! -d "$app_dir" || ! -f "$executable" || ! -f "$widget_executable" ]]; then
+if [[ ! -d "$app_dir" || ! -f "$executable" || ! -f "$icon" || ! -f "$widget_executable" ]]; then
     echo "Distribution app is missing. Run Scripts/build-app.sh first." >&2
     exit 1
 fi
@@ -19,6 +20,12 @@ plutil -lint "$app_dir/Contents/Info.plist"
 plutil -lint "$widget_dir/Contents/Info.plist"
 codesign --verify --deep --strict --verbose=2 "$app_dir"
 codesign --verify --strict --verbose=2 "$widget_dir"
+
+icon_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$app_dir/Contents/Info.plist")"
+if [[ "$icon_name" != "VibeIsland.icns" ]]; then
+    echo "Invalid app icon reference: $icon_name" >&2
+    exit 1
+fi
 
 widget_extension_point="$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$widget_dir/Contents/Info.plist")"
 if [[ "$widget_extension_point" != "com.apple.widgetkit-extension" ]]; then
@@ -42,6 +49,7 @@ fi
 unexpected_files="$(find "$app_dir" -type f \
     \! -path "$executable" \
     \! -path "$app_dir/Contents/Info.plist" \
+    \! -path "$icon" \
     \! -path "$app_dir/Contents/_CodeSignature/CodeResources" \
     \! -path "$widget_executable" \
     \! -path "$widget_dir/Contents/Info.plist" \
