@@ -59,6 +59,11 @@ private struct VibeIslandWidgetView: View {
 
     private let accent = Color(red: 0.30, green: 0.96, blue: 0.67)
     private let purple = Color(red: 0.64, green: 0.40, blue: 1.0)
+    private var language: AppLanguage { entry.snapshot.language }
+
+    private func t(_ chinese: String, _ english: String) -> String {
+        language == .chinese ? chinese : english
+    }
 
     var body: some View {
         Group {
@@ -86,7 +91,10 @@ private struct VibeIslandWidgetView: View {
         VStack(spacing: 0) {
             quotaRow
             Spacer(minLength: family == .systemSmall ? 7 : 10)
-            DotMatrixProgressBar(progress: Double(entry.snapshot.remainingPercent) / 100)
+            DotMatrixProgressBar(
+                progress: Double(entry.snapshot.remainingPercent) / 100,
+                progressAccessibilityLabel: t("剩余额度进度", "Quota remaining progress")
+            )
         }
         .frame(maxWidth: .infinity, minHeight: family == .systemSmall ? 58 : 62)
     }
@@ -94,7 +102,7 @@ private struct VibeIslandWidgetView: View {
     private var quotaRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("剩余额度").sectionLabelStyle()
+                Text(t("剩余额度", "QUOTA LEFT")).sectionLabelStyle()
                 DotMatrixText(
                     text: "\(entry.snapshot.remainingPercent)%",
                     dotSize: family == .systemSmall ? 2.35 : 3.0,
@@ -103,7 +111,7 @@ private struct VibeIslandWidgetView: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 3) {
-                Text("刷新倒计时").sectionLabelStyle()
+                Text(t("刷新倒计时", "RESET IN")).sectionLabelStyle()
                 HStack(spacing: family == .systemSmall ? 4 : 6) {
                     openCodexLink
                     Text(resetCountdown)
@@ -139,7 +147,7 @@ private struct VibeIslandWidgetView: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("打开 Codex")
+        .accessibilityLabel(t("打开 Codex", "Open Codex"))
     }
 
     private var summaryCards: some View {
@@ -152,7 +160,7 @@ private struct VibeIslandWidgetView: View {
 
     private var dailyCard: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("平均每天使用")
+            Text(t("平均每天使用", "DAILY AVERAGE"))
                 .summaryLabelStyle(size: family == .systemSmall ? 8 : 9)
             HStack(alignment: .bottom, spacing: 4) {
                 if let daily = entry.snapshot.dailyAllowancePercent {
@@ -166,7 +174,7 @@ private struct VibeIslandWidgetView: View {
                     Text("--")
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                 }
-                Text("/ 天")
+                Text(t("/ 天", "/ day"))
                     .font(.system(size: family == .systemSmall ? 8 : 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color.white.opacity(0.48))
             }
@@ -176,8 +184,16 @@ private struct VibeIslandWidgetView: View {
 
     private var taskCard: some View {
         HStack(spacing: family == .systemSmall ? 6 : 12) {
-            taskMetric(title: "进行中", count: entry.snapshot.activeTaskCount, color: purple)
-            taskMetric(title: "已完成", count: entry.snapshot.completedTaskCount, color: accent)
+            taskMetric(
+                title: t("进行中", "ACTIVE"),
+                count: entry.snapshot.activeTaskCount,
+                color: purple
+            )
+            taskMetric(
+                title: t("已完成", "COMPLETED"),
+                count: entry.snapshot.completedTaskCount,
+                color: accent
+            )
         }
         .summaryCardStyle()
     }
@@ -197,12 +213,19 @@ private struct VibeIslandWidgetView: View {
     }
 
     private var resetCountdown: String {
-        guard let resetsAt = entry.snapshot.resetsAt else { return "等待同步" }
+        guard let resetsAt = entry.snapshot.resetsAt else {
+            return t("等待同步", "Waiting to sync")
+        }
         let seconds = max(0, Int(resetsAt.timeIntervalSince(entry.date)))
-        if seconds == 0 { return "即将刷新" }
+        if seconds == 0 { return t("即将刷新", "Refreshing soon") }
         let days = seconds / 86_400
         let hours = (seconds % 86_400) / 3_600
         let minutes = (seconds % 3_600) / 60
+        if language == .english {
+            if days > 0 { return "\(days)d \(hours)h" }
+            if hours > 0 { return "\(hours)h \(minutes)m" }
+            return "\(max(1, minutes))m"
+        }
         if days > 0 { return "\(days)天 \(hours)小时" }
         if hours > 0 { return "\(hours)小时 \(minutes)分钟" }
         return "\(max(1, minutes))分钟"
@@ -213,9 +236,9 @@ private struct VibeIslandWidgetView: View {
             Image(systemName: "wave.3.right.circle.fill")
                 .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(accent)
-            Text("打开 Vibe Island")
+            Text(t("打开 Vibe Island", "Open Vibe Island"))
                 .font(.system(size: 14, weight: .bold))
-            Text("启动后自动同步 Codex 状态")
+            Text(t("启动后自动同步 Codex 状态", "Launch the app to sync Codex status"))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -260,8 +283,8 @@ private struct VibeIslandStatusWidget: Widget {
         StaticConfiguration(kind: kind, provider: StatusProvider()) { entry in
             VibeIslandWidgetView(entry: entry)
         }
-        .configurationDisplayName("Vibe Island 状态")
-        .description("查看 Codex 剩余额度、刷新时间及进行中和已完成的任务数量。")
+        .configurationDisplayName("Vibe Island Status")
+        .description("Codex quota, reset time, and task status / Codex 额度、刷新时间与任务状态。")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

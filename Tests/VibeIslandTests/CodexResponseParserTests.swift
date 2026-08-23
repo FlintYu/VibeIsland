@@ -13,7 +13,8 @@ final class CodexResponseParserTests: XCTestCase {
             planName: "plus",
             isConnected: true,
             activeTaskCount: 2,
-            completedTaskCount: 7
+            completedTaskCount: 7,
+            language: .english
         )
 
         let data = try JSONEncoder().encode(snapshot)
@@ -22,6 +23,41 @@ final class CodexResponseParserTests: XCTestCase {
         XCTAssertFalse(text.contains("auth"))
         XCTAssertFalse(text.contains("/Users/"))
         XCTAssertFalse(text.contains("Build"))
+    }
+
+    func testLegacyWidgetSnapshotDefaultsToChinese() throws {
+        let data = Data(
+            """
+            {
+              "updatedAt": 1000,
+              "remainingPercent": 68,
+              "resetsAt": null,
+              "dailyAllowancePercent": 21,
+              "planName": "plus",
+              "isConnected": true,
+              "activeTaskCount": 2,
+              "completedTaskCount": 7
+            }
+            """.utf8
+        )
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let snapshot = try decoder.decode(WidgetStatusSnapshot.self, from: data)
+        XCTAssertEqual(snapshot.language, .chinese)
+    }
+
+    @MainActor
+    func testLanguagePreferencePersists() throws {
+        let suiteName = "VibeIslandTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = IslandSettingsModel(defaults: defaults)
+        XCTAssertEqual(settings.language, .chinese)
+        settings.setLanguage(.english)
+
+        XCTAssertEqual(IslandSettingsModel(defaults: defaults).language, .english)
     }
 
     func testExecutableOverrideDoesNotDependOnUserHomePath() throws {
@@ -77,6 +113,8 @@ final class CodexResponseParserTests: XCTestCase {
         )
         XCTAssertEqual(quota.resetCountdown(relativeTo: now), "1天 1小时")
         XCTAssertEqual(quota.compactResetCountdown(relativeTo: now), "1天 1小时")
+        XCTAssertEqual(quota.resetCountdown(relativeTo: now, language: .english), "1d 1h")
+        XCTAssertEqual(quota.compactResetCountdown(relativeTo: now, language: .english), "1d 1h")
         XCTAssertEqual(quota.averageDailyAllowance(relativeTo: now), 47)
     }
 

@@ -21,7 +21,7 @@ final class IslandPanelController {
 
     private let hiddenWidth: CGFloat = 184
     private let baseHiddenSize = NSSize(width: 184, height: 32)
-    private let settingsSize = NSSize(width: 410, height: 560)
+    private let settingsSize = NSSize(width: 410, height: 620)
 
     private func componentTasks(from tasks: [CodexTaskSnapshot]) -> [CodexTaskSnapshot] {
         guard !settingsModel.includeOrdinaryConversations else { return tasks }
@@ -269,12 +269,13 @@ final class IslandPanelController {
     }
 
     private func observeSettings() {
-        settingsObserver = Publishers.CombineLatest(
+        settingsObserver = Publishers.CombineLatest3(
             settingsModel.$includeOrdinaryConversations,
-            settingsModel.$maxVisibleTasks
+            settingsModel.$maxVisibleTasks,
+            settingsModel.$language
         )
         .dropFirst()
-        .sink { [weak self] _, _ in
+        .sink { [weak self] _, _, _ in
             guard let self else { return }
             let tasks = componentTasks(from: monitor.tasks)
             _ = completionTracker.consume(tasks)
@@ -287,7 +288,7 @@ final class IslandPanelController {
     }
 
     private func observeWidgetSnapshot() {
-        widgetSnapshotObserver = Publishers.CombineLatest(
+        widgetSnapshotObserver = Publishers.CombineLatest3(
             Publishers.CombineLatest4(
                 monitor.$quota,
                 monitor.$tasks,
@@ -297,9 +298,10 @@ final class IslandPanelController {
             Publishers.CombineLatest(
                 presentationModel.$completedIndicatorIDs,
                 presentationModel.$readCompletedIndicatorIDs
-            )
+            ),
+            settingsModel.$language
         )
-        .sink { [weak self] status, completionState in
+        .sink { [weak self] status, completionState, language in
             guard let self else { return }
             let (quota, tasks, isConnected, includeOrdinaryConversations) = status
             let (completedIndicatorIDs, readCompletedIndicatorIDs) = completionState
@@ -320,7 +322,8 @@ final class IslandPanelController {
                     planName: quota.planName,
                     isConnected: isConnected,
                     activeTaskCount: activeTaskCount,
-                    completedTaskCount: completedTaskCount
+                    completedTaskCount: completedTaskCount,
+                    language: language
                 )
             )
         }

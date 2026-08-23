@@ -46,6 +46,7 @@ struct DotMatrixText: View {
 
 struct DotMatrixProgressBar: View {
     let progress: Double
+    var progressAccessibilityLabel = "剩余额度进度"
     private let segmentCount = 20
 
     var body: some View {
@@ -57,7 +58,7 @@ struct DotMatrixProgressBar: View {
             }
         }
         .frame(height: 5)
-        .accessibilityLabel("剩余额度进度")
+        .accessibilityLabel(progressAccessibilityLabel)
         .accessibilityValue("\(Int(progress * 100))%")
     }
 

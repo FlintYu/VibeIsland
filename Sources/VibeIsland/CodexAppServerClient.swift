@@ -112,7 +112,9 @@ private final class CodexAppServerConnection: @unchecked Sendable {
 
     private func write(_ messages: [[String: Any]]) throws {
         guard let inputHandle else {
-            throw VibeIslandError.serverFailed("连接尚未建立")
+            throw VibeIslandError.serverFailed(
+                L10n.current(chinese: "连接尚未建立", english: "Connection has not been established")
+            )
         }
         var data = Data()
         for message in messages {
@@ -152,7 +154,9 @@ private final class CodexAppServerConnection: @unchecked Sendable {
         }
         guard ids.allSatisfy({ responses[$0] != nil }) else {
             throw VibeIslandError.serverFailed(
-                serverStopped ? "连接已中断" : "请求超时"
+                serverStopped
+                    ? L10n.current(chinese: "连接已中断", english: "Connection was interrupted")
+                    : L10n.current(chinese: "请求超时", english: "Request timed out")
             )
         }
 
@@ -170,7 +174,12 @@ private final class CodexAppServerConnection: @unchecked Sendable {
     ) throws -> CodexSnapshot {
         guard var rateLimits = responseObjects[rateLimitID],
               var threadList = responseObjects[threadListID] else {
-            throw VibeIslandError.invalidResponse("缺少任务或额度响应")
+            throw VibeIslandError.invalidResponse(
+                L10n.current(
+                    chinese: "缺少任务或额度响应",
+                    english: "Task or quota response is missing"
+                )
+            )
         }
         // Normalize dynamic request IDs for the existing parser.
         rateLimits["id"] = 1

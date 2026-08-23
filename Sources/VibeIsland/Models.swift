@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import VibeIslandShared
 
 struct QuotaSnapshot: Equatable {
     var remainingPercent: Int
@@ -16,26 +17,42 @@ struct QuotaSnapshot: Equatable {
         planName: nil
     )
 
-    func resetCountdown(relativeTo now: Date) -> String {
-        guard let resetsAt else { return "等待同步" }
+    func resetCountdown(relativeTo now: Date, language: AppLanguage = .chinese) -> String {
+        guard let resetsAt else {
+            return L10n.text(language, chinese: "等待同步", english: "Waiting to sync")
+        }
         let seconds = max(0, Int(resetsAt.timeIntervalSince(now)))
-        if seconds == 0 { return "即将刷新" }
+        if seconds == 0 {
+            return L10n.text(language, chinese: "即将刷新", english: "Refreshing soon")
+        }
 
         let days = seconds / 86_400
         let hours = (seconds % 86_400) / 3_600
         let minutes = (seconds % 3_600) / 60
+        if language == .english {
+            if days > 0 { return "\(days)d \(hours)h" }
+            if hours > 0 { return "\(hours)h \(minutes)m" }
+            return "\(max(1, minutes))m"
+        }
         if days > 0 { return "\(days)天 \(hours)小时" }
         if hours > 0 { return "\(hours)小时 \(minutes)分" }
         return "\(max(1, minutes))分钟"
     }
 
-    func compactResetCountdown(relativeTo now: Date) -> String {
+    func compactResetCountdown(relativeTo now: Date, language: AppLanguage = .chinese) -> String {
         guard let resetsAt else { return "--" }
         let seconds = max(0, Int(resetsAt.timeIntervalSince(now)))
-        if seconds == 0 { return "即将刷新" }
+        if seconds == 0 {
+            return L10n.text(language, chinese: "即将刷新", english: "Refreshing soon")
+        }
         let days = seconds / 86_400
         let hours = (seconds % 86_400) / 3_600
         let minutes = (seconds % 3_600) / 60
+        if language == .english {
+            if days > 0 { return "\(days)d \(hours)h" }
+            if hours > 0 { return "\(hours)h \(minutes)m" }
+            return "\(max(1, minutes))m"
+        }
         if days > 0 { return "\(days)天 \(hours)小时" }
         if hours > 0 { return "\(hours)小时 \(minutes)分钟" }
         return "\(max(1, minutes))分钟"
@@ -61,6 +78,21 @@ enum CodexTaskState: String, Equatable {
     case unknown
 
     var label: String {
+        label(in: .chinese)
+    }
+
+    func label(in language: AppLanguage) -> String {
+        if language == .english {
+            switch self {
+            case .running: return "Running"
+            case .waiting: return "Waiting for input"
+            case .completed: return "Completed"
+            case .interrupted: return "Interrupted"
+            case .failed: return "Failed"
+            case .idle: return "Idle"
+            case .unknown: return "Unknown"
+            }
+        }
         switch self {
         case .running: return "执行中"
         case .waiting: return "等待输入"
@@ -92,6 +124,10 @@ enum CodexTaskState: String, Equatable {
     }
 
     var matrixLabel: String {
+        matrixLabel(in: .chinese)
+    }
+
+    func matrixLabel(in language: AppLanguage) -> String {
         switch self {
         case .running: return "RUN"
         case .waiting: return "WAIT"
@@ -158,11 +194,17 @@ enum VibeIslandError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .codexNotFound:
-            return "未找到 Codex CLI"
+            return L10n.current(chinese: "未找到 Codex CLI", english: "Codex CLI was not found")
         case .serverFailed(let message):
-            return "Codex 数据服务不可用：\(message)"
+            return L10n.current(
+                chinese: "Codex 数据服务不可用：\(message)",
+                english: "Codex data service unavailable: \(message)"
+            )
         case .invalidResponse(let reason):
-            return "Codex 返回了无法识别的数据：\(reason)"
+            return L10n.current(
+                chinese: "Codex 返回了无法识别的数据：\(reason)",
+                english: "Codex returned unrecognized data: \(reason)"
+            )
         }
     }
 }

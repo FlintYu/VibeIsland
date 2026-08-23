@@ -3,7 +3,9 @@ import Foundation
 enum CodexResponseParser {
     static func parse(_ data: Data, now: Date = Date()) throws -> CodexSnapshot {
         guard let text = String(data: data, encoding: .utf8) else {
-            throw VibeIslandError.invalidResponse("响应不是 UTF-8 文本")
+            throw VibeIslandError.invalidResponse(
+                L10n.current(chinese: "响应不是 UTF-8 文本", english: "Response is not UTF-8 text")
+            )
         }
 
         var rateLimitResult: [String: Any]?
@@ -22,10 +24,14 @@ enum CodexResponseParser {
         }
 
         guard let rateLimitResult else {
-            throw VibeIslandError.invalidResponse("缺少额度响应")
+            throw VibeIslandError.invalidResponse(
+                L10n.current(chinese: "缺少额度响应", english: "Quota response is missing")
+            )
         }
         guard let threadResult else {
-            throw VibeIslandError.invalidResponse("缺少任务响应")
+            throw VibeIslandError.invalidResponse(
+                L10n.current(chinese: "缺少任务响应", english: "Task response is missing")
+            )
         }
 
         let quota = parseQuota(rateLimitResult)
@@ -58,7 +64,10 @@ enum CodexResponseParser {
         let rows = result["data"] as? [[String: Any]] ?? []
         return rows.prefix(20).compactMap { row in
             guard let id = row["id"] as? String else { return nil }
-            let preview = (row["preview"] as? String) ?? "未命名任务"
+            let preview = (row["preview"] as? String) ?? L10n.current(
+                chinese: "未命名任务",
+                english: "Untitled task"
+            )
             let rawTitle = (row["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             let title = (rawTitle?.isEmpty == false ? rawTitle! : preview)
                 .replacingOccurrences(of: "\n", with: " ")
