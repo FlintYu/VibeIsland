@@ -4,12 +4,39 @@ import XCTest
 @testable import VibeIslandShared
 
 final class CodexResponseParserTests: XCTestCase {
+    func testWidgetTreatsDecodedSnapshotAsRunningAppEvenWhenCodexIsDisconnected() throws {
+        let snapshot = WidgetStatusSnapshot(
+            updatedAt: Date(timeIntervalSince1970: 1_000),
+            remainingPercent: 68,
+            resetsAt: nil,
+            weeklyRemainingPercent: 82,
+            weeklyResetsAt: Date(timeIntervalSince1970: 9_000),
+            planName: "plus",
+            isConnected: false,
+            activeTaskCount: 0,
+            completedTaskCount: 7
+        )
+
+        let load = WidgetStatusLoad.resolve(responseData: try JSONEncoder().encode(snapshot))
+
+        XCTAssertTrue(load.isAppAvailable)
+        XCTAssertEqual(load.snapshot, snapshot)
+    }
+
+    func testWidgetPromptsToOpenAppWhenNoSnapshotResponseArrives() {
+        let load = WidgetStatusLoad.resolve(responseData: nil)
+
+        XCTAssertFalse(load.isAppAvailable)
+        XCTAssertEqual(load.snapshot, .placeholder)
+    }
+
     func testWidgetSnapshotRoundTripsWithoutCredentialsOrPaths() throws {
         let snapshot = WidgetStatusSnapshot(
             updatedAt: Date(timeIntervalSince1970: 1_000),
             remainingPercent: 68,
             resetsAt: Date(timeIntervalSince1970: 2_000),
-            dailyAllowancePercent: 21,
+            weeklyRemainingPercent: 82,
+            weeklyResetsAt: Date(timeIntervalSince1970: 9_000),
             planName: "plus",
             isConnected: true,
             activeTaskCount: 2,
@@ -25,14 +52,13 @@ final class CodexResponseParserTests: XCTestCase {
         XCTAssertFalse(text.contains("Build"))
     }
 
-    func testLegacyWidgetSnapshotDefaultsToChinese() throws {
+    func testWidgetSnapshotWithMissingWeeklyFieldsDefaultsToChinese() throws {
         let data = Data(
             """
             {
               "updatedAt": 1000,
               "remainingPercent": 68,
               "resetsAt": null,
-              "dailyAllowancePercent": 21,
               "planName": "plus",
               "isConnected": true,
               "activeTaskCount": 2,
@@ -45,6 +71,8 @@ final class CodexResponseParserTests: XCTestCase {
         decoder.dateDecodingStrategy = .secondsSince1970
         let snapshot = try decoder.decode(WidgetStatusSnapshot.self, from: data)
         XCTAssertEqual(snapshot.language, .chinese)
+        XCTAssertNil(snapshot.weeklyRemainingPercent)
+        XCTAssertNil(snapshot.weeklyResetsAt)
     }
 
     @MainActor
@@ -86,12 +114,15 @@ final class CodexResponseParserTests: XCTestCase {
         let payload = """
         {"id":0,"result":{"userAgent":"test"}}
         {"id":2,"result":{"data":[{"id":"thread-1","name":"Build the island","preview":"fallback","updatedAt":1700000000,"status":{"type":"active","activeFlags":[]},"path":null}]}}
-        {"id":1,"result":{"rateLimits":{"primary":{"usedPercent":24,"windowDurationMins":10080,"resetsAt":1800000000},"credits":{"balance":"0"},"planType":"plus"}}}
+        {"id":1,"result":{"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":24,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":10,"windowDurationMins":10080,"resetsAt":1800500000},"credits":{"balance":"0"},"planType":"plus"}}}}
         """
 
         let snapshot = try CodexResponseParser.parse(Data(payload.utf8))
         XCTAssertEqual(snapshot.quota.remainingPercent, 76)
-        XCTAssertEqual(snapshot.quota.windowMinutes, 10_080)
+        XCTAssertEqual(snapshot.quota.windowMinutes, 300)
+        XCTAssertEqual(snapshot.quota.weeklyRemainingPercent, 90)
+        XCTAssertEqual(snapshot.quota.weeklyWindowMinutes, 10_080)
+        XCTAssertEqual(snapshot.quota.weeklyResetsAt, Date(timeIntervalSince1970: 1_800_500_000))
         XCTAssertEqual(snapshot.quota.planName, "plus")
         XCTAssertEqual(snapshot.tasks.first?.title, "Build the island")
         XCTAssertEqual(snapshot.tasks.first?.state, .running)
@@ -108,6 +139,9 @@ final class CodexResponseParserTests: XCTestCase {
             remainingPercent: 50,
             resetsAt: now.addingTimeInterval(90_060),
             windowMinutes: nil,
+            weeklyRemainingPercent: 82,
+            weeklyResetsAt: now.addingTimeInterval(4 * 86_400 + 7_200),
+            weeklyWindowMinutes: 10_080,
             creditsBalance: nil,
             planName: nil
         )
@@ -115,7 +149,46 @@ final class CodexResponseParserTests: XCTestCase {
         XCTAssertEqual(quota.compactResetCountdown(relativeTo: now), "1天 1小时")
         XCTAssertEqual(quota.resetCountdown(relativeTo: now, language: .english), "1d 1h")
         XCTAssertEqual(quota.compactResetCountdown(relativeTo: now, language: .english), "1d 1h")
-        XCTAssertEqual(quota.averageDailyAllowance(relativeTo: now), 47)
+        XCTAssertEqual(quota.weeklyResetCountdown(relativeTo: now), "4天 2小时")
+        XCTAssertEqual(quota.weeklyResetCountdown(relativeTo: now, language: .english), "4d 2h")
+    }
+
+    func testWeeklyDailyUsageTargetSpreadsRemainingQuotaUntilReset() throws {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let quota = QuotaSnapshot(
+            remainingPercent: 50,
+            resetsAt: nil,
+            windowMinutes: nil,
+            weeklyRemainingPercent: 83,
+            weeklyResetsAt: now.addingTimeInterval(6 * 86_400 + 11 * 3_600),
+            weeklyWindowMinutes: 10_080,
+            creditsBalance: nil,
+            planName: nil
+        )
+
+        XCTAssertEqual(
+            try XCTUnwrap(quota.weeklyDailyUsageTarget(relativeTo: now)),
+            12.8516129032,
+            accuracy: 0.000_000_1
+        )
+    }
+
+    func testWeeklyDailyUsageTargetIsUnavailableWithoutAFutureReset() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        var quota = QuotaSnapshot(
+            remainingPercent: 50,
+            resetsAt: nil,
+            windowMinutes: nil,
+            weeklyRemainingPercent: 83,
+            weeklyResetsAt: nil,
+            weeklyWindowMinutes: 10_080,
+            creditsBalance: nil,
+            planName: nil
+        )
+
+        XCTAssertNil(quota.weeklyDailyUsageTarget(relativeTo: now))
+        quota.weeklyResetsAt = now
+        XCTAssertNil(quota.weeklyDailyUsageTarget(relativeTo: now))
     }
 
     func testRecentRolloutWithoutTerminalEventIsRunning() throws {

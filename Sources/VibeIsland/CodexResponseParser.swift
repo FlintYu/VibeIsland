@@ -49,12 +49,21 @@ enum CodexResponseParser {
             Date(timeIntervalSince1970: $0.doubleValue)
         }
         let duration = (primary?["windowDurationMins"] as? NSNumber)?.intValue
+        let secondary = bucket["secondary"] as? [String: Any]
+        let weeklyUsed = (secondary?["usedPercent"] as? NSNumber)?.intValue
+        let weeklyResetsAt = (secondary?["resetsAt"] as? NSNumber).map {
+            Date(timeIntervalSince1970: $0.doubleValue)
+        }
+        let weeklyDuration = (secondary?["windowDurationMins"] as? NSNumber)?.intValue
         let credits = bucket["credits"] as? [String: Any]
 
         return QuotaSnapshot(
             remainingPercent: max(0, min(100, 100 - used)),
             resetsAt: resetsAt,
             windowMinutes: duration,
+            weeklyRemainingPercent: weeklyUsed.map { max(0, min(100, 100 - $0)) },
+            weeklyResetsAt: weeklyResetsAt,
+            weeklyWindowMinutes: weeklyDuration,
             creditsBalance: credits?["balance"] as? String,
             planName: bucket["planType"] as? String
         )

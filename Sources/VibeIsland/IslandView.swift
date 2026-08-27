@@ -369,7 +369,7 @@ struct IslandView: View {
         VStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(t("剩余额度", "QUOTA LEFT"))
+                    Text(t("5 小时额度", "5-HOUR LIMIT"))
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                     DotMatrixText(
@@ -380,7 +380,7 @@ struct IslandView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(t("刷新倒计时", "RESET IN"))
+                    Text(t("5 小时刷新", "5-HOUR RESET"))
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
@@ -399,40 +399,68 @@ struct IslandView: View {
 
             DotMatrixProgressBar(
                 progress: Double(monitor.quota.remainingPercent) / 100,
-                progressAccessibilityLabel: t("剩余额度进度", "Quota remaining progress")
+                progressAccessibilityLabel: t("5 小时剩余额度进度", "5-hour quota remaining progress")
             )
 
-            HStack(spacing: 9) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.white.opacity(0.07))
-                    Image(systemName: "calendar.day.timeline.left")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.66))
-                }
-                .frame(width: 26, height: 26)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("DAILY BUDGET")
+            HStack(spacing: 12) {
+                if let weekly = monitor.quota.weeklyRemainingPercent {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label {
+                            Text(t("周剩余额度", "WEEKLY QUOTA LEFT"))
+                        } icon: {
+                            Image(systemName: "calendar.day.timeline.left")
+                        }
                         .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                        .tracking(0.7)
-                        .foregroundStyle(Color.white.opacity(0.36))
-                    Text(t("平均每天还可用", "Available per day"))
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.66))
-                }
-                Spacer()
-                if let daily = monitor.quota.averageDailyAllowance(relativeTo: monitor.now) {
-                    Text(language == .chinese ? "\(daily)% / 天" : "\(daily)% / day")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.white.opacity(0.48))
+
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("\(weekly)%")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.90))
+                            Text(
+                                t("刷新：", "Reset: ")
+                                    + monitor.quota.weeklyResetCountdown(
+                                        relativeTo: monitor.now,
+                                        language: language
+                                    )
+                            )
+                                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.48))
+                        }
                         .monospacedDigit()
-                        .foregroundStyle(Color.white.opacity(0.90))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 1, height: 32)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(t("预计日均需用", "DAILY USE NEEDED"))
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.48))
+
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(
+                                monitor.quota.weeklyDailyUsageTarget(relativeTo: monitor.now)
+                                    .map { String(format: "%.1f%%", $0) } ?? "--"
+                            )
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text(t("/ 天", "/ day"))
+                                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.48))
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(Color(red: 0.28, green: 0.93, blue: 0.68).opacity(0.84))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(t("等待同步", "Waiting to sync"))
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .padding(.horizontal, 10)
-            .frame(height: 42)
+            .frame(height: 50)
             .background {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(Color.white.opacity(0.035))

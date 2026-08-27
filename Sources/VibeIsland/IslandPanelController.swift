@@ -54,7 +54,7 @@ final class IslandPanelController {
             1,
             min(settingsModel.maxVisibleTasks, activeTaskCount + retainedCompletedCount)
         )
-        return NSSize(width: 440, height: 276 + CGFloat(visibleRows - 1) * 42)
+        return NSSize(width: 440, height: 284 + CGFloat(visibleRows - 1) * 42)
     }
 
     private var presentation: IslandPresentation {
@@ -318,7 +318,8 @@ final class IslandPanelController {
                     updatedAt: .now,
                     remainingPercent: quota.remainingPercent,
                     resetsAt: quota.resetsAt,
-                    dailyAllowancePercent: quota.averageDailyAllowance(relativeTo: .now),
+                    weeklyRemainingPercent: quota.weeklyRemainingPercent,
+                    weeklyResetsAt: quota.weeklyResetsAt,
                     planName: quota.planName,
                     isConnected: isConnected,
                     activeTaskCount: activeTaskCount,

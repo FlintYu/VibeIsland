@@ -29,7 +29,8 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
     public let updatedAt: Date
     public let remainingPercent: Int
     public let resetsAt: Date?
-    public let dailyAllowancePercent: Int?
+    public let weeklyRemainingPercent: Int?
+    public let weeklyResetsAt: Date?
     public let planName: String?
     public let isConnected: Bool
     public let activeTaskCount: Int
@@ -40,7 +41,8 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
         updatedAt: Date,
         remainingPercent: Int,
         resetsAt: Date?,
-        dailyAllowancePercent: Int?,
+        weeklyRemainingPercent: Int?,
+        weeklyResetsAt: Date?,
         planName: String?,
         isConnected: Bool,
         activeTaskCount: Int,
@@ -50,7 +52,8 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
         self.updatedAt = updatedAt
         self.remainingPercent = remainingPercent
         self.resetsAt = resetsAt
-        self.dailyAllowancePercent = dailyAllowancePercent
+        self.weeklyRemainingPercent = weeklyRemainingPercent
+        self.weeklyResetsAt = weeklyResetsAt
         self.planName = planName
         self.isConnected = isConnected
         self.activeTaskCount = activeTaskCount
@@ -62,7 +65,8 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
         updatedAt: .now,
         remainingPercent: 0,
         resetsAt: nil,
-        dailyAllowancePercent: nil,
+        weeklyRemainingPercent: nil,
+        weeklyResetsAt: nil,
         planName: nil,
         isConnected: false,
         activeTaskCount: 0,
@@ -74,7 +78,8 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
         case updatedAt
         case remainingPercent
         case resetsAt
-        case dailyAllowancePercent
+        case weeklyRemainingPercent
+        case weeklyResetsAt
         case planName
         case isConnected
         case activeTaskCount
@@ -87,11 +92,28 @@ public struct WidgetStatusSnapshot: Codable, Equatable, Sendable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         remainingPercent = try container.decode(Int.self, forKey: .remainingPercent)
         resetsAt = try container.decodeIfPresent(Date.self, forKey: .resetsAt)
-        dailyAllowancePercent = try container.decodeIfPresent(Int.self, forKey: .dailyAllowancePercent)
+        weeklyRemainingPercent = try container.decodeIfPresent(Int.self, forKey: .weeklyRemainingPercent)
+        weeklyResetsAt = try container.decodeIfPresent(Date.self, forKey: .weeklyResetsAt)
         planName = try container.decodeIfPresent(String.self, forKey: .planName)
         isConnected = try container.decode(Bool.self, forKey: .isConnected)
         activeTaskCount = try container.decode(Int.self, forKey: .activeTaskCount)
         completedTaskCount = try container.decode(Int.self, forKey: .completedTaskCount)
         language = try container.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .chinese
+    }
+}
+
+public struct WidgetStatusLoad: Equatable, Sendable {
+    public let snapshot: WidgetStatusSnapshot
+    public let isAppAvailable: Bool
+
+    public static func resolve(responseData: Data?) -> WidgetStatusLoad {
+        guard let responseData,
+              let snapshot = try? JSONDecoder().decode(
+                  WidgetStatusSnapshot.self,
+                  from: responseData
+              ) else {
+            return WidgetStatusLoad(snapshot: .placeholder, isAppAvailable: false)
+        }
+        return WidgetStatusLoad(snapshot: snapshot, isAppAvailable: true)
     }
 }

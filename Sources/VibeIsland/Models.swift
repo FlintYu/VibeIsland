@@ -6,6 +6,9 @@ struct QuotaSnapshot: Equatable {
     var remainingPercent: Int
     var resetsAt: Date?
     var windowMinutes: Int?
+    var weeklyRemainingPercent: Int? = nil
+    var weeklyResetsAt: Date? = nil
+    var weeklyWindowMinutes: Int? = nil
     var creditsBalance: String?
     var planName: String?
 
@@ -40,8 +43,35 @@ struct QuotaSnapshot: Equatable {
     }
 
     func compactResetCountdown(relativeTo now: Date, language: AppLanguage = .chinese) -> String {
-        guard let resetsAt else { return "--" }
-        let seconds = max(0, Int(resetsAt.timeIntervalSince(now)))
+        compactCountdown(to: resetsAt, relativeTo: now, language: language)
+    }
+
+    func weeklyResetCountdown(relativeTo now: Date, language: AppLanguage = .chinese) -> String {
+        compactCountdown(to: weeklyResetsAt, relativeTo: now, language: language)
+    }
+
+    /// The average percentage of the full weekly quota that can still be used
+    /// per day if the remaining allowance is spread evenly until the reset.
+    func weeklyDailyUsageTarget(relativeTo now: Date) -> Double? {
+        guard
+            let weeklyRemainingPercent,
+            let weeklyResetsAt
+        else { return nil }
+
+        let secondsUntilReset = weeklyResetsAt.timeIntervalSince(now)
+        guard secondsUntilReset > 0 else { return nil }
+
+        let daysUntilReset = secondsUntilReset / 86_400
+        return Double(weeklyRemainingPercent) / daysUntilReset
+    }
+
+    private func compactCountdown(
+        to resetDate: Date?,
+        relativeTo now: Date,
+        language: AppLanguage
+    ) -> String {
+        guard let resetDate else { return "--" }
+        let seconds = max(0, Int(resetDate.timeIntervalSince(now)))
         if seconds == 0 {
             return L10n.text(language, chinese: "即将刷新", english: "Refreshing soon")
         }
@@ -56,15 +86,6 @@ struct QuotaSnapshot: Equatable {
         if days > 0 { return "\(days)天 \(hours)小时" }
         if hours > 0 { return "\(hours)小时 \(minutes)分钟" }
         return "\(max(1, minutes))分钟"
-    }
-
-    func averageDailyAllowance(relativeTo now: Date) -> Int? {
-        guard let resetsAt else { return nil }
-        let secondsRemaining = max(0, resetsAt.timeIntervalSince(now))
-        guard secondsRemaining > 0 else { return remainingPercent }
-        let daysRemaining = max(1, secondsRemaining / 86_400)
-        let dailyAllowance = Double(remainingPercent) / daysRemaining
-        return max(0, min(100, Int(dailyAllowance.rounded(.down))))
     }
 }
 

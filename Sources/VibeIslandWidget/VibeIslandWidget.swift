@@ -5,6 +5,7 @@ import WidgetKit
 private struct StatusEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetStatusSnapshot
+    let isAppAvailable: Bool
 }
 
 private struct StatusProvider: TimelineProvider {
@@ -14,13 +15,15 @@ private struct StatusProvider: TimelineProvider {
             snapshot: WidgetStatusSnapshot(
                 updatedAt: .now,
                 remainingPercent: 47,
-                resetsAt: Date().addingTimeInterval(4 * 86_400 + 2 * 3_600),
-                dailyAllowancePercent: 11,
+                resetsAt: Date().addingTimeInterval(2 * 3_600),
+                weeklyRemainingPercent: 90,
+                weeklyResetsAt: Date().addingTimeInterval(4 * 86_400 + 2 * 3_600),
                 planName: "plus",
                 isConnected: true,
                 activeTaskCount: 2,
                 completedTaskCount: 7
-            )
+            ),
+            isAppAvailable: true
         )
     }
 
@@ -38,7 +41,7 @@ private struct StatusProvider: TimelineProvider {
         guard let url = URL(
             string: "http://127.0.0.1:\(VibeIslandWidgetConstants.loopbackPort)/snapshot"
         ) else {
-            completion(StatusEntry(date: .now, snapshot: .placeholder))
+            completion(StatusEntry(date: .now, snapshot: .placeholder, isAppAvailable: false))
             return
         }
 
@@ -46,9 +49,12 @@ private struct StatusProvider: TimelineProvider {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 1.5
         URLSession.shared.dataTask(with: request) { data, _, _ in
-            let snapshot = data.flatMap { try? JSONDecoder().decode(WidgetStatusSnapshot.self, from: $0) }
-                ?? .placeholder
-            completion(StatusEntry(date: .now, snapshot: snapshot))
+            let load = WidgetStatusLoad.resolve(responseData: data)
+            completion(StatusEntry(
+                date: .now,
+                snapshot: load.snapshot,
+                isAppAvailable: load.isAppAvailable
+            ))
         }.resume()
     }
 }
@@ -67,7 +73,7 @@ private struct VibeIslandWidgetView: View {
 
     var body: some View {
         Group {
-            if entry.snapshot.isConnected { statusContent } else { disconnectedContent }
+            if entry.isAppAvailable { statusContent } else { disconnectedContent }
         }
         .containerBackground(for: .widget) {
             LinearGradient(
@@ -93,7 +99,7 @@ private struct VibeIslandWidgetView: View {
             Spacer(minLength: family == .systemSmall ? 7 : 10)
             DotMatrixProgressBar(
                 progress: Double(entry.snapshot.remainingPercent) / 100,
-                progressAccessibilityLabel: t("剩余额度进度", "Quota remaining progress")
+                progressAccessibilityLabel: t("5 小时剩余额度进度", "5-hour quota remaining progress")
             )
         }
         .frame(maxWidth: .infinity, minHeight: family == .systemSmall ? 58 : 62)
@@ -102,7 +108,7 @@ private struct VibeIslandWidgetView: View {
     private var quotaRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(t("剩余额度", "QUOTA LEFT")).sectionLabelStyle()
+                Text(t("5 小时额度", "5-HOUR LIMIT")).sectionLabelStyle()
                 DotMatrixText(
                     text: "\(entry.snapshot.remainingPercent)%",
                     dotSize: family == .systemSmall ? 2.35 : 3.0,
@@ -111,7 +117,7 @@ private struct VibeIslandWidgetView: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 3) {
-                Text(t("刷新倒计时", "RESET IN")).sectionLabelStyle()
+                Text(t("5 小时刷新", "5-HOUR RESET")).sectionLabelStyle()
                 HStack(spacing: family == .systemSmall ? 4 : 6) {
                     openCodexLink
                     Text(resetCountdown)
@@ -152,58 +158,50 @@ private struct VibeIslandWidgetView: View {
 
     private var summaryCards: some View {
         HStack(spacing: family == .systemSmall ? 5 : 8) {
-            dailyCard
+            weeklyCard
             taskCard
         }
         .frame(height: family == .systemSmall ? 54 : 56)
     }
 
-    private var dailyCard: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(t("平均每天使用", "DAILY AVERAGE"))
-                .summaryLabelStyle(size: family == .systemSmall ? 8 : 9)
-            HStack(alignment: .bottom, spacing: 4) {
-                if let daily = entry.snapshot.dailyAllowancePercent {
-                    DotMatrixText(
-                        text: "\(daily)%",
-                        dotSize: family == .systemSmall ? 1.45 : 1.8,
-                        dotSpacing: 0.42,
-                        color: accent
-                    )
-                } else {
-                    Text("--")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                }
-                Text(t("/ 天", "/ day"))
-                    .font(.system(size: family == .systemSmall ? 8 : 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.48))
-            }
-        }
-        .summaryCardStyle()
-    }
-
-    private var taskCard: some View {
+    private var weeklyCard: some View {
         HStack(spacing: family == .systemSmall ? 6 : 12) {
-            taskMetric(
-                title: t("进行中", "ACTIVE"),
-                count: entry.snapshot.activeTaskCount,
-                color: purple
+            summaryMetric(
+                title: t("剩余额度", "QUOTA LEFT"),
+                value: entry.snapshot.weeklyRemainingPercent.map { "\($0)%" } ?? "--",
+                color: accent
             )
-            taskMetric(
-                title: t("已完成", "COMPLETED"),
-                count: entry.snapshot.completedTaskCount,
+            summaryMetric(
+                title: t("剩余时间", "TIME LEFT"),
+                value: weeklyTimeRemaining,
                 color: accent
             )
         }
         .summaryCardStyle()
     }
 
-    private func taskMetric(title: String, count: Int, color: Color) -> some View {
+    private var taskCard: some View {
+        HStack(spacing: family == .systemSmall ? 6 : 12) {
+            summaryMetric(
+                title: t("进行中", "ACTIVE"),
+                value: "\(entry.snapshot.activeTaskCount)",
+                color: purple
+            )
+            summaryMetric(
+                title: t("已完成", "COMPLETED"),
+                value: "\(entry.snapshot.completedTaskCount)",
+                color: accent
+            )
+        }
+        .summaryCardStyle()
+    }
+
+    private func summaryMetric(title: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .summaryLabelStyle(size: family == .systemSmall ? 8 : 9)
             DotMatrixText(
-                text: "\(count)",
+                text: value,
                 dotSize: family == .systemSmall ? 1.45 : 1.8,
                 dotSpacing: 0.42,
                 color: color
@@ -213,10 +211,25 @@ private struct VibeIslandWidgetView: View {
     }
 
     private var resetCountdown: String {
-        guard let resetsAt = entry.snapshot.resetsAt else {
+        countdown(to: entry.snapshot.resetsAt)
+    }
+
+    private var weeklyTimeRemaining: String {
+        guard let resetsAt = entry.snapshot.weeklyResetsAt else { return "--" }
+        let seconds = max(0, Int(resetsAt.timeIntervalSince(entry.date)))
+        let days = seconds / 86_400
+        var hours = (seconds % 86_400) / 3_600
+        if seconds > 0 && days == 0 && hours == 0 {
+            hours = 1
+        }
+        return "\(days)D\(hours)H"
+    }
+
+    private func countdown(to resetDate: Date?) -> String {
+        guard let resetDate else {
             return t("等待同步", "Waiting to sync")
         }
-        let seconds = max(0, Int(resetsAt.timeIntervalSince(entry.date)))
+        let seconds = max(0, Int(resetDate.timeIntervalSince(entry.date)))
         if seconds == 0 { return t("即将刷新", "Refreshing soon") }
         let days = seconds / 86_400
         let hours = (seconds % 86_400) / 3_600
